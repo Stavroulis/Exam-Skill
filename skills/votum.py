@@ -75,13 +75,17 @@ Reference signs have been added to the claims.
 
 3  Prior Art; Novelty (Art. 54 EPC)
 
-List the cited prior-art documents.
+Reference is made to the following documents; the numbering will be adhered
+to in the rest of the procedure.
 
 Use one line per document:
-
 D1, publication number, applicant, date.
 
-Then write one paragraph per cited prior art document.
+List the cited prior-art documents.
+
+4   Novelty (Article 54 EPC): distinguishing features
+
+Write one paragraph per cited prior art document.
 
 For each independent claim, state the key distinguishing feature or features over each cited document.
 
@@ -95,24 +99,22 @@ End this section with one sentence identifying the closest prior art and why.
 
 Use the form:
 
-D1 is choosen as the closest prior as it []
+D1 is choosen as the closest prior because [reasoning]
 
 
-4  Inventive Step (Art. 56 EPC)
+5  Inventive Step (Art. 56 EPC)
 
-4.1  Closest Prior Art
+5.1  Closest Prior Art
 
-Name the closest prior art document in one sentence.
+Document D[x] is regarded as being the closest prior art to the subject‐matter of
+claim [independent claim], and discloses (the references in parentheses applying to this
+document):
 
 Then write out the wording of claim 1 from the amended claims feature by feature.
-
-After each feature disclosed in the closest prior art, add an inline citation:
-
+After each feature disclosed in the closest prior art, add an inline citation as extractable from the esop:
 (Dx: [location])
-
-For features not disclosed in the closest prior art, add no citation.
-
-Do not use strikethrough.
+For features not disclosed in the closest prior art, add no citation strike them through.
+Use the the respective citations for each technical feature as in the mapping for the claim from the esop (text in parentheses in the esop in the sections "Novelty" or "Inventive step" for the independent claims ).
 
 After the claim text, write:
 
@@ -122,25 +124,35 @@ The subject-matter of claim 1 differs from [Dx] in that:
 
 The subject-matter of claim 1 is therefore novel (Art. 54 EPC).
 
-4.2  Technical Effect and Problem to be Solved
+5.2  Technical Effect and Problem to be Solved
 
 Use two sentences maximum:
 
-The technical effect of the distinguishing feature(s) is [effect].
+The synergetic (if more than one differences found) technical effect of the distinguishing feature(s) a)- b) is [effect].
 
-The objective technical problem is how to [problem].
+In a new paragraph add the objective technical problem to be solved by the differences.
+The objective technical problem is how to [problem]. 
 
-4.3  Solution
+5.3  Solution
 
 Use two to three sentences.
 
 Explain how the characterising feature of claim 1 solves the objective technical problem.
-
+No hints about the differences to the prior art. 
 Refer to the description if useful.
 
-4.4  Why the Solution is Not Obvious
+5.4  Why is it inventive
 
 Write one focused paragraph.
+
+The use of xyz is well known in the prior art (see e.g. D[x]: paragraphs/ page
+[xy] and lines [yz]). OR 
+
+The problem [e.g. problem to be solved as mentioned above] is a standard problem in the respective prior art [relevant prior art] (see e.g. D[x]: paragraphs/ page
+[xy] and lines [yz])
+
+The problem with the solution of [Dx] is that... Furthermore
+no ...... is discussed in [Dx].
 
 Do not use sub-sections.
 
@@ -150,11 +162,19 @@ Reference specific passages of prior-art documents where possible.
 
 State what the skilled person starting from the closest prior art would or would not do and why.
 
+OR
+
+Even if the skilled person would replace the ..... of [Dx] with a ..... as known in
+the prior art (see e.g. [Dy]: paragraphs/ page [xy] and lines [yz]) still the solution
+of Dx is missing hints in order to adapt the needed technical features as
+disclosed in the present application.
+
+
 End with:
 
 The same reasoning applies mutatis mutandis to [other independent claim(s)].
 
-5  Further Relevant Information (Art. 82, 83, 84, 52, 53 EPC)
+6  Further Relevant Information (Art. 82, 83, 84, 52, 53 EPC)
 
 Only include this section if there is something to report.
 

@@ -1,0 +1,33 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Streamlit secrets
+.streamlit/secrets.toml
+
+# Environment files
+.env
+.env.*
+
+# Data / user uploads
+data/
+cases/
+*.pdf
+*.txt
+!packages.txt
+!requirements.txt
+*.csv
+*.json
+
+# Claude Code — local settings (personal overrides, not for team)
+.claude/settings.local.json
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
