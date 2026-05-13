@@ -1,8 +1,9 @@
 from core.llm import call_llm
 from core.structure import build_structured_context
+from core.skill_utils import SUMMARY_INSTRUCTION, extract_skill_summary, format_prior_context_block
 
 
-def build_prompt(case_name, source_documents, structured_documents, user_input):
+def build_prompt(case_name, source_documents, structured_documents, user_input, prior_context=""):
     if structured_documents:
         docs_block = build_structured_context(structured_documents)
     else:
@@ -11,9 +12,11 @@ def build_prompt(case_name, source_documents, structured_documents, user_input):
             docs_block += f"\n\n===== DOCUMENT: {doc['filename']} =====\n"
             docs_block += doc["text"][:50000]
 
+    prior_context_block = format_prior_context_block(prior_context)
+
     prompt = f"""
 You are an expert European Patent Office examiner.
-
+{prior_context_block}
 You are drafting a concise internal EPO examination report called a "Votum".
 
 Analyse the uploaded patent documents strictly according to the EPC and the EPO Guidelines for Examination.
@@ -51,7 +54,7 @@ Use compact mapping format.
 
 For each claim, state only:
 - what changed;
-- where the basis is;
+- where the basis in the description as originaly filed is;
 - page and line numbers or paragraph numbers from the original description;
 - original claim numbers, where relevant.
 
@@ -62,12 +65,11 @@ Claim X = orig. claim X
 Example format:
 
 Claim 1 = orig. claim 1 and
-  [brief description of addition/change] (Basis: description page X, lines Y–Z "[short quote]"),
-  [next addition if any] (Basis: description page X, lines Y–Z).
+  [brief description of addition/change] (Basis: description as originally filed  page X, lines Y–Z "[short quote]"),
+  [next addition if any] (Basis: description as originally filed page X, lines Y–Z).
 
 Claim 2 = orig. claim 2
-
-Claim 3 = orig. claim 4
+Claims 3- 5 = orig. claims 4- 6
 
 Reference signs have been added to the claims.
 
@@ -79,7 +81,7 @@ Use one line per document:
 
 D1, publication number, applicant, date.
 
-Then write one paragraph per independent claim.
+Then write one paragraph per cited prior art document.
 
 For each independent claim, state the key distinguishing feature or features over each cited document.
 
@@ -90,6 +92,11 @@ Use the form:
 "Dx does not disclose [distinguishing feature of claim 1]."
 
 End this section with one sentence identifying the closest prior art and why.
+
+Use the form:
+
+D1 is choosen as the closest prior as it []
+
 
 4  Inventive Step (Art. 56 EPC)
 
@@ -176,30 +183,32 @@ STRICT RULES
 
 SOURCE DOCUMENTS:
 {docs_block}
-"""
+{SUMMARY_INSTRUCTION}"""
     return prompt
 
 
 def run(
-    case_name, 
-    source_documents, 
-    structured_documents, 
-    user_input, 
-    llm_config
+    case_name,
+    source_documents,
+    structured_documents,
+    user_input,
+    llm_config,
+    prior_context="",
 ):
-    
     prompt = build_prompt(
         case_name=case_name,
         source_documents=source_documents,
         structured_documents=structured_documents,
         user_input=user_input,
+        prior_context=prior_context,
     )
 
-    return call_llm(
+    raw = call_llm(
         prompt=prompt,
         provider=llm_config["provider"],
         model=llm_config["model"],
     )
+    return extract_skill_summary(raw)
 
 VOTUM_SKILL = {
     "name": "Votum",
