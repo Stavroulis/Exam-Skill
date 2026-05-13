@@ -3,6 +3,8 @@ import json
 import re
 from pathlib import Path
 
+from core.llm import call_llm
+
 
 # ── Filename codes (edit here to rename a convention code) ──────────────────
 CODE_CLAIMS         = "_CLMS_"
@@ -119,3 +121,99 @@ def parse_esop_prior_art(esop_text: str) -> list[dict]:
             })
 
     return result
+
+
+def match_prior_art(
+    dlabels: list[dict],
+    filenames: list[str],
+    llm_config: dict,
+) -> dict[str, str]:
+    """
+    Call the LLM to match prior art filenames (titles) to D-label citations.
+    Returns {filename: D-label} (inverted from LLM output {D-label: filename}).
+    """
+    if not dlabels or not filenames:
+        return {}
+
+    citations_text = "\n".join(
+        f"{d['label']}: {d['pub_number']} — {d['applicant']} — {d['date']}"
+        for d in dlabels
+    )
+    titles_text = "\n".join(f"- {f}" for f in filenames)
+
+    prompt = f"""You are matching patent documents to prior art citations from a European Patent Office Search Opinion.
+
+D-label citations:
+{citations_text}
+
+Uploaded document titles (filenames without .pdf extension):
+{titles_text}
+
+Return valid JSON only:
+{{"D1": "exact_filename.pdf", "D2": "exact_filename.pdf"}}
+Omit any D-label you cannot match with confidence.
+Only use filenames from the list above. Do not invent filenames."""
+
+    try:
+        response = call_llm(prompt=prompt, llm_config=llm_config)
+        json_match = re.search(r"\{.*\}", response, re.DOTALL)
+        if not json_match:
+            return {}
+        data = json.loads(json_match.group(0))
+        return {
+            v: k
+            for k, v in data.items()
+            if isinstance(k, str) and isinstance(v, str)
+        }
+    except Exception:
+        return {}
+
+
+def build_mapping(
+    filenames: list[str],
+    esop_text: str,
+    llm_config: dict,
+) -> dict[str, str]:
+    """
+    Build complete {filename: role} mapping.
+    Phase 1: regex classify. Phase 2: ESOP parse + LLM match for unclassified files.
+    """
+    mapping: dict[str, str] = {}
+    unclassified: list[str] = []
+
+    for filename in filenames:
+        role = classify_filename(filename)
+        if role is not None:
+            mapping[filename] = role
+        else:
+            unclassified.append(filename)
+
+    if esop_text and unclassified:
+        dlabels = parse_esop_prior_art(esop_text)
+        if dlabels:
+            prior_art_matches = match_prior_art(dlabels, unclassified, llm_config)
+            mapping.update(prior_art_matches)
+
+    return mapping
+
+
+def save_mapping(case_name: str, mapping: dict) -> Path:
+    """Persist mapping to data/cases/{case_name}/document_mapping.json."""
+    from core.document_store import case_dir
+
+    path = case_dir(case_name) / "document_mapping.json"
+    path.write_text(
+        json.dumps(mapping, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    return path
+
+
+def load_mapping(case_name: str) -> dict | None:
+    """Load mapping from disk. Returns None if no mapping exists."""
+    from core.document_store import case_dir
+
+    path = case_dir(case_name) / "document_mapping.json"
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8", errors="ignore"))
