@@ -21,6 +21,13 @@ from core.document_store import (
 from core.pdf_extract import extract_and_cache_pdf_text
 from core.llm import OPENAI_MODELS, ANTHROPIC_MODELS
 from core.structure import guess_document_type, structure_document
+from core.document_mapper import (
+    classify_filename,
+    build_mapping,
+    save_mapping,
+    load_mapping,
+    role_to_structure_type,
+)
 from skills.registry import SKILLS
 
 
@@ -237,12 +244,15 @@ def auto_prepare_documents(
     Prepare documents for all skills.
 
     Steps:
-    1. Reuse cached extracted text if available.
-    2. Extract/OCR PDF text if needed.
-    3. Reuse structured JSON if available.
-    4. Structure the document if needed.
-    5. Return both raw text blocks and structured document blocks.
+    1. Load document mapping if available.
+    2. Reuse cached extracted text if available.
+    3. Extract/OCR PDF text if needed.
+    4. Reuse structured JSON if available.
+    5. Structure the document using mapped role (or guess_document_type fallback).
+    6. Return both raw text blocks and structured document blocks.
     """
+    mapping = load_mapping(case_name)
+
     source_texts = []
     structured_docs = []
 
@@ -264,9 +274,18 @@ def auto_prepare_documents(
             )
             text = get_document_text(doc)
 
+        # Determine display name and structure type from mapping or fallback
+        if mapping and doc.name in mapping:
+            role = mapping[doc.name]
+            display_name = role
+            structure_type = role_to_structure_type(role)
+        else:
+            display_name = doc.name
+            structure_type = guess_document_type(doc.name, text or "")
+
         source_texts.append(
             {
-                "filename": doc.name,
+                "filename": display_name,
                 "text": text or "",
             }
         )
@@ -282,12 +301,10 @@ def auto_prepare_documents(
             structured = load_structured_document(case_name, doc)
 
         if not structured:
-            guessed_type = guess_document_type(doc.name, text or "")
-
             structured = structure_document(
-                filename=doc.name,
+                filename=display_name,
                 text=text or "",
-                selected_document_type=guessed_type,
+                selected_document_type=structure_type,
             )
 
             save_structured_document(
