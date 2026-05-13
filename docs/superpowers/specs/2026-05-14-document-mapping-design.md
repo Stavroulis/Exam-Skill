@@ -20,9 +20,11 @@ Automatic classification of uploaded PDF documents into their examination roles 
 
 ---
 
-## Filename Naming Convention
+## Filename Naming Conventions
 
-Application documents follow this pattern:
+Two naming conventions are supported. `classify_filename()` tries the new convention first; if no match, it tries the legacy convention. A file matching either convention is classified — both are fully supported.
+
+### New convention
 
 ```
 YYYY-MM-DD_<CODE>_<FileNumber>[anything].pdf
@@ -36,13 +38,26 @@ YYYY-MM-DD_<CODE>_<FileNumber>[anything].pdf
 | `_REPL_` | `reply` |
 | `_ESOP_` | `esop` |
 
-Matching is performed on the bare filename (no path), case-insensitive on the `.pdf` extension, exact on the code.
+### Legacy convention
 
-Files that do not match any pattern are left **unclassified** for now (future communications or other document types). They are not passed to skills and are not treated as prior art candidates unless the LLM matching step identifies them as such.
+Files uploaded with plain descriptive names (existing behaviour):
+
+| Filename pattern | Role assigned |
+|---|---|
+| `claims.pdf` or `claims_as_filed.pdf` | `claims_as_filed` |
+| `description.pdf` | `description` |
+| `amended_claims.pdf` | `amended_claims` |
+| `reply.pdf` | `reply` |
+| `esop.pdf` | `esop` |
+| `D1.pdf`, `D2.pdf`, `D3.pdf`, … | `D1`, `D2`, `D3`, … (D-label already embedded in filename — no LLM matching needed) |
+
+Matching is performed on the bare filename (no path), case-insensitive on the `.pdf` extension.
+
+Files that do not match either convention are left **unclassified** for now (future communications or other document types). They are not passed to skills and are not treated as prior art candidates unless the LLM matching step identifies them as such.
 
 If no file maps to `esop`, the pipeline stops after the regex phase and returns only the classified application documents. Tab 1 shows a warning:
 
-> *"No ESOP detected — prior art documents cannot be matched. Upload a file named `YYYY-MM-DD_ESOP_<number>.pdf`."*
+> *"No ESOP detected — prior art documents cannot be matched. Upload a file named `YYYY-MM-DD_ESOP_<number>.pdf` or `esop.pdf`."*
 
 ---
 
@@ -68,10 +83,11 @@ If no file maps to `esop`, the pipeline stops after the regex phase and returns 
 
 ## Phase 1: Filename Regex Classification
 
-`classify_filename(filename)` applies these compiled regex patterns in order:
+`classify_filename(filename)` tries two pattern sets in order, returning the first match.
 
+**New convention patterns (tried first):**
 ```python
-ROLE_PATTERNS = [
+NEW_CONVENTION_PATTERNS = [
     (r"^\d{4}-\d{2}-\d{2}_CLMS_.*\.pdf$",  "claims_as_filed"),
     (r"^\d{4}-\d{2}-\d{2}_DESC_.*\.pdf$",  "description"),
     (r"^\d{4}-\d{2}-\d{2}_ABEX_.*\.pdf$",  "amended_claims"),
@@ -80,7 +96,21 @@ ROLE_PATTERNS = [
 ]
 ```
 
-Returns the matched role string, or `None` if no pattern matches.
+**Legacy convention patterns (tried if new convention does not match):**
+```python
+LEGACY_PATTERNS = [
+    (r"^claims(_as_filed)?\.pdf$",  "claims_as_filed"),
+    (r"^description\.pdf$",         "description"),
+    (r"^amended_claims\.pdf$",      "amended_claims"),
+    (r"^reply\.pdf$",               "reply"),
+    (r"^esop\.pdf$",                "esop"),
+    (r"^(D\d+)\.pdf$",             None),  # D-label extracted from group 1
+]
+```
+
+The `D\d+` legacy pattern is special: the role returned is the D-label itself (`"D1"`, `"D2"`, etc.), extracted from capture group 1. Files matched by this pattern are already fully classified — they are excluded from the LLM matching step.
+
+Returns the matched role string, or `None` if neither convention matches.
 
 ---
 
@@ -108,7 +138,7 @@ Returns an empty list if the section is not found. The caller warns the user.
 
 ## Phase 3: Prior Art LLM Matching
 
-`match_prior_art(dlabels, filenames, llm_config)` makes one LLM call:
+`match_prior_art(dlabels, filenames, llm_config)` is called only when there are unclassified files remaining after Phase 1 (i.e., files that matched neither the new convention nor the legacy convention, including legacy `D1.pdf`/`D2.pdf` files which are already fully classified and excluded). Makes one LLM call:
 
 **Prompt:**
 ```
