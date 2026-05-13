@@ -831,7 +831,7 @@ with tabs[0]:
             pd.DataFrame(
                 [{"File": k, "Role": v} for k, v in existing_mapping.items()]
             ),
-            use_container_width=True,
+            width="stretch",
         )
 
     build_label = "Rebuild Mapping" if existing_mapping else "Build Document Mapping"
@@ -876,7 +876,7 @@ with tabs[0]:
                 pd.DataFrame(
                     [{"File": k, "Role": v} for k, v in mapping.items()]
                 ),
-                use_container_width=True,
+                width="stretch",
             )
 
             unclassified = [f for f in all_filenames if f not in mapping]
