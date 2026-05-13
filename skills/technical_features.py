@@ -1,8 +1,9 @@
 from core.llm import call_llm
 from core.structure import build_structured_context
+from core.skill_utils import SUMMARY_INSTRUCTION, extract_skill_summary, format_prior_context_block
 
 
-def build_prompt(case_name, source_documents, structured_documents, user_input):
+def build_prompt(case_name, source_documents, structured_documents, user_input, prior_context=""):
     if structured_documents:
         docs_block = build_structured_context(structured_documents)
     else:
@@ -11,9 +12,11 @@ def build_prompt(case_name, source_documents, structured_documents, user_input):
             docs_block += f"\n\n===== DOCUMENT: {doc['filename']} =====\n"
             docs_block += doc["text"][:40000]
 
+    prior_context_block = format_prior_context_block(prior_context)
+
     prompt = f"""
 You are an experienced European Patent Office examiner.
-
+{prior_context_block}
 Your task is to extract the technical features from the provided claims with maximum structural precision.
 
 STRICT INSTRUCTIONS:
@@ -125,7 +128,7 @@ Markdown output structure:
 ## 5. Essential features
 
 ## 6. Examiner-style summary
-"""
+{SUMMARY_INSTRUCTION}"""
     return prompt
 
 
@@ -135,19 +138,22 @@ def run(
     structured_documents,
     user_input,
     llm_config,
+    prior_context="",
 ):
     prompt = build_prompt(
         case_name=case_name,
         source_documents=source_documents,
         structured_documents=structured_documents,
         user_input=user_input,
+        prior_context=prior_context,
     )
 
-    return call_llm(
+    raw = call_llm(
         prompt=prompt,
         provider=llm_config["provider"],
         model=llm_config["model"],
     )
+    return extract_skill_summary(raw)
 
 
 TECHNICAL_FEATURES_SKILL = {

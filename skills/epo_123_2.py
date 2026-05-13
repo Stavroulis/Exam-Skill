@@ -1,5 +1,6 @@
 from core.llm import call_llm
 from core.structure import build_structured_context
+from core.skill_utils import SUMMARY_INSTRUCTION, extract_skill_summary, format_prior_context_block
 
 
 def render_input_ui():
@@ -41,7 +42,7 @@ def render_input_ui():
     }
 
 
-def build_prompt(case_name, source_documents, structured_documents, user_input):
+def build_prompt(case_name, source_documents, structured_documents, user_input, prior_context=""):
     if structured_documents:
         docs_block = build_structured_context(structured_documents)
     else:
@@ -51,9 +52,11 @@ def build_prompt(case_name, source_documents, structured_documents, user_input):
             docs_block += f"\n\n===== DOCUMENT: {doc['filename']} =====\n"
             docs_block += doc["text"][:40000]
 
+    prior_context_block = format_prior_context_block(prior_context)
+
     prompt = f"""
 You are an experienced European Patent Office examiner.
-
+{prior_context_block}
 You must examine whether the amendments comply with Article 123(2) EPC.
 
 Apply the EPO gold standard:
@@ -139,7 +142,7 @@ Draft formal examination language suitable for a communication under Article 94(
 Be precise.
 Use claim numbers and document references where available.
 If the basis cannot be verified, say so.
-"""
+{SUMMARY_INSTRUCTION}"""
 
     return prompt
 
@@ -149,19 +152,22 @@ def run(
     structured_documents,
     user_input,
     llm_config,
+    prior_context="",
 ):
     prompt = build_prompt(
         case_name=case_name,
         source_documents=source_documents,
         structured_documents=structured_documents,
         user_input=user_input,
+        prior_context=prior_context,
     )
 
-    return call_llm(
+    raw = call_llm(
         prompt=prompt,
         provider=llm_config["provider"],
         model=llm_config["model"],
     )
+    return extract_skill_summary(raw)
 
 EPO_123_2_SKILL = {
     "name": "EPO Article 123(2) EPC Examiner",

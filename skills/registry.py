@@ -5,6 +5,7 @@ from skills.prior_art_analysis import PRIOR_ART_ANALYSIS_SKILL
 from skills.novelty_inventive_step import NOVELTY_INVENTIVE_STEP_SKILL
 from skills.epo_123_2 import EPO_123_2_SKILL
 from skills.votum import VOTUM_SKILL
+from skills.complete_examination import COMPLETE_EXAMINATION_SKILL
 
 
 SKILLS = {
@@ -14,5 +15,6 @@ SKILLS = {
     "prior_art_analysis": PRIOR_ART_ANALYSIS_SKILL,
     "novelty_inventive_step": NOVELTY_INVENTIVE_STEP_SKILL,
     "epo_123_2": EPO_123_2_SKILL,
-    "votum":VOTUM_SKILL
+    "votum": VOTUM_SKILL,
+    "complete_examination": COMPLETE_EXAMINATION_SKILL,
 }

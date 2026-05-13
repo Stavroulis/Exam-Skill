@@ -2,24 +2,26 @@ import re
 
 from core.llm import call_llm
 from core.structure import build_structured_context
+from core.skill_utils import SUMMARY_INSTRUCTION, extract_skill_summary, format_prior_context_block
 
 _SUMMARY_BEGIN = "===BEGIN_4P_SUMMARY==="
 _SUMMARY_END = "===END_4P_SUMMARY==="
 
 
-def build_prompt(case_name, source_documents, structured_documents, user_input):
+def build_prompt(case_name, source_documents, structured_documents, user_input, prior_context=""):
     if structured_documents:
         docs_block = build_structured_context(structured_documents)
     else:
         docs_block = ""
-
         for doc in source_documents:
             docs_block += f"\n\n===== DOCUMENT: {doc['filename']} =====\n"
             docs_block += doc["text"][:40000]
 
+    prior_context_block = format_prior_context_block(prior_context)
+
     prompt = f"""
 You are an experienced European Patent Office examiner.
-
+{prior_context_block}
 Your task is to perform a basic technical analysis of the patent application description.
 
 Focus on:
@@ -116,15 +118,15 @@ Provide a short EPO-style summary of:
 After completing the above analysis, also output a standalone 4-paragraph plain-text summary wrapped exactly between the markers below (include the marker lines verbatim):
 
 {_SUMMARY_BEGIN}
-[Paragraph 1 – Underlying technical problem: State the underlying technical problem of the invention, whether explicitly stated or inferred from the description.]
+[Paragraph 1 - Underlying technical problem: State the underlying technical problem of the invention, whether explicitly stated or inferred from the description.]
 
-[Paragraph 2 – Technical effect: Describe the technical effect on which the solution is based and which features contribute to it.]
+[Paragraph 2 - Technical effect: Describe the technical effect on which the solution is based and which features contribute to it.]
 
-[Paragraph 3 – Solution: Describe the solution as disclosed in the application.]
+[Paragraph 3 - Solution: Describe the solution as disclosed in the application.]
 
-[Paragraph 4 – Advantages: Describe the advantages of the disclosed solution as extracted from both the description and the claims.]
+[Paragraph 4 - Advantages: Describe the advantages of the disclosed solution as extracted from both the description and the claims.]
 {_SUMMARY_END}
-"""
+{SUMMARY_INSTRUCTION}"""
 
     return prompt
 
@@ -135,12 +137,14 @@ def run(
     structured_documents,
     user_input,
     llm_config,
+    prior_context="",
 ):
     prompt = build_prompt(
         case_name=case_name,
         source_documents=source_documents,
         structured_documents=structured_documents,
         user_input=user_input,
+        prior_context=prior_context,
     )
 
     raw = call_llm(
@@ -149,20 +153,21 @@ def run(
         model=llm_config["model"],
     )
 
-    match = re.search(
+    # Extract 4-paragraph summary (existing behaviour)
+    match_4p = re.search(
         rf"{re.escape(_SUMMARY_BEGIN)}(.*?){re.escape(_SUMMARY_END)}",
         raw,
         re.DOTALL,
     )
-
-    if match:
-        summary = match.group(1).strip()
-        full = raw[: match.start()].strip()
+    if match_4p:
+        raw_without_4p = raw[: match_4p.start()].strip() + raw[match_4p.end():]
     else:
-        summary = ""
-        full = raw.strip()
+        raw_without_4p = raw
 
-    return {"result": full, "summary": summary}
+    # Extract skill summary (new behaviour)
+    extracted = extract_skill_summary(raw_without_4p)
+
+    return {"result": extracted["result"], "summary": extracted["summary"]}
 
 
 BASIC_ANALYSIS_SKILL = {
