@@ -1,0 +1,87 @@
+import pytest
+from core.document_mapper import classify_filename, role_to_structure_type
+
+
+# --- classify_filename: new convention ---
+
+def test_new_convention_clms():
+    assert classify_filename("2026-05-13_CLMS_EP21760408.pdf") == "claims_as_filed"
+
+def test_new_convention_desc():
+    assert classify_filename("2026-05-13_DESC_EP21760408.pdf") == "description"
+
+def test_new_convention_abex():
+    assert classify_filename("2026-05-13_ABEX_EP21760408.pdf") == "amended_claims"
+
+def test_new_convention_repl():
+    assert classify_filename("2026-05-13_REPL_EP21760408.pdf") == "reply"
+
+def test_new_convention_esop():
+    assert classify_filename("2026-05-13_ESOP_EP21760408.pdf") == "esop"
+
+def test_new_convention_case_insensitive_extension():
+    assert classify_filename("2026-05-13_CLMS_EP123.PDF") == "claims_as_filed"
+
+# --- classify_filename: legacy convention ---
+
+def test_legacy_claims():
+    assert classify_filename("claims.pdf") == "claims_as_filed"
+
+def test_legacy_claims_as_filed():
+    assert classify_filename("claims_as_filed.pdf") == "claims_as_filed"
+
+def test_legacy_description():
+    assert classify_filename("description.pdf") == "description"
+
+def test_legacy_amended_claims():
+    assert classify_filename("amended_claims.pdf") == "amended_claims"
+
+def test_legacy_reply():
+    assert classify_filename("reply.pdf") == "reply"
+
+def test_legacy_esop():
+    assert classify_filename("esop.pdf") == "esop"
+
+def test_legacy_d1():
+    assert classify_filename("D1.pdf") == "D1"
+
+def test_legacy_d2():
+    assert classify_filename("D2.pdf") == "D2"
+
+def test_legacy_d10():
+    assert classify_filename("D10.pdf") == "D10"
+
+# --- classify_filename: unclassified ---
+
+def test_unclassified_title_name():
+    assert classify_filename("Method for real-time sensor calibration.pdf") is None
+
+def test_unclassified_generic():
+    assert classify_filename("some_other_file.pdf") is None
+
+
+# --- role_to_structure_type ---
+
+def test_role_claims_as_filed():
+    assert role_to_structure_type("claims_as_filed") == "claims_as_filed"
+
+def test_role_description():
+    assert role_to_structure_type("description") == "description_as_filed"
+
+def test_role_amended_claims():
+    assert role_to_structure_type("amended_claims") == "amended_claims"
+
+def test_role_reply():
+    assert role_to_structure_type("reply") == "attorney_response"
+
+def test_role_esop():
+    assert role_to_structure_type("esop") == "epo_communication"
+
+def test_role_d1():
+    assert role_to_structure_type("D1") == "prior_art"
+
+def test_role_d2():
+    assert role_to_structure_type("D2") == "prior_art"
+
+def test_role_unknown():
+    assert role_to_structure_type("something_else") == "unknown"
