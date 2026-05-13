@@ -1,5 +1,5 @@
 import pytest
-from core.document_mapper import classify_filename, role_to_structure_type
+from core.document_mapper import classify_filename, role_to_structure_type, parse_esop_prior_art
 
 
 # --- classify_filename: new convention ---
@@ -85,3 +85,57 @@ def test_role_d2():
 
 def test_role_unknown():
     assert role_to_structure_type("something_else") == "unknown"
+
+
+# --- parse_esop_prior_art ---
+
+ESOP_SAMPLE = """
+Some introductory text.
+
+PRIOR ART DOCUMENTS
+
+D1 EP 2 490 004 A1 (UNIV TOHOKU [JP]; TOYOTA CHUO
+KENKYUSHO KK [JP] ET AL.) 22 August 2012 (2012-08-22)
+D2 US 2017/199090 A1 (ANAN HIROO [JP] ET AL) 13 July 2017
+
+(2017-07-13)
+
+D3 WO 02/44655 A1 (NANODEVICES INC [US]) 6 June 2002
+
+(2002-06-06)
+
+Some text after the citations.
+"""
+
+def test_parse_esop_returns_three_entries():
+    result = parse_esop_prior_art(ESOP_SAMPLE)
+    assert len(result) == 3
+
+def test_parse_esop_labels():
+    result = parse_esop_prior_art(ESOP_SAMPLE)
+    assert result[0]["label"] == "D1"
+    assert result[1]["label"] == "D2"
+    assert result[2]["label"] == "D3"
+
+def test_parse_esop_pub_numbers():
+    result = parse_esop_prior_art(ESOP_SAMPLE)
+    assert "EP" in result[0]["pub_number"]
+    assert "US" in result[1]["pub_number"]
+    assert "WO" in result[2]["pub_number"]
+
+def test_parse_esop_dates():
+    result = parse_esop_prior_art(ESOP_SAMPLE)
+    assert result[0]["date"] == "2012-08-22"
+    assert result[1]["date"] == "2017-07-13"
+    assert result[2]["date"] == "2002-06-06"
+
+def test_parse_esop_applicant_d1():
+    result = parse_esop_prior_art(ESOP_SAMPLE)
+    assert "TOHOKU" in result[0]["applicant"]
+
+def test_parse_esop_no_section_returns_empty():
+    result = parse_esop_prior_art("This document has no prior art section.")
+    assert result == []
+
+def test_parse_esop_empty_string():
+    assert parse_esop_prior_art("") == []

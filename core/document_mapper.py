@@ -68,3 +68,54 @@ def role_to_structure_type(role: str) -> str:
     if re.match(r"^D\d+$", role):
         return "prior_art"
     return _ROLE_TO_STRUCTURE_TYPE.get(role, "unknown")
+
+
+def parse_esop_prior_art(esop_text: str) -> list[dict]:
+    """
+    Locate the PRIOR ART DOCUMENTS section and extract D-label entries.
+    Returns list of dicts with keys: label, pub_number, applicant, date.
+    """
+    if not esop_text:
+        return []
+
+    section_match = re.search(r"PRIOR ART DOCUMENTS", esop_text, re.IGNORECASE)
+    if not section_match:
+        return []
+
+    section = esop_text[section_match.end():]
+
+    # Split into per-entry blocks on lines starting with D<digit>
+    entries = re.split(r"\n(?=D\d+\s)", section)
+
+    result = []
+    for entry in entries:
+        entry = entry.strip()
+        if not entry:
+            continue
+
+        label_match = re.match(r"^(D\d+)\s", entry)
+        if not label_match:
+            continue
+        label = label_match.group(1)
+
+        # Publication number: text between D-label and first opening parenthesis
+        pub_match = re.match(r"D\d+\s+([^(]+?)\s*\(", entry)
+        pub_number = re.sub(r"\s+", " ", pub_match.group(1)).strip() if pub_match else ""
+
+        # Applicant: content of first (...) stopped before date digit
+        applicant_match = re.search(r"\((.+?)\)\s+\d", entry, re.DOTALL)
+        applicant = re.sub(r"\s+", " ", applicant_match.group(1)).strip() if applicant_match else ""
+
+        # Date: always present as (YYYY-MM-DD)
+        date_match = re.search(r"\((\d{4}-\d{2}-\d{2})\)", entry)
+        date = date_match.group(1) if date_match else ""
+
+        if label and pub_number:
+            result.append({
+                "label":      label,
+                "pub_number": pub_number,
+                "applicant":  applicant,
+                "date":       date,
+            })
+
+    return result
