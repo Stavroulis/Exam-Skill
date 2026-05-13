@@ -21,6 +21,13 @@ from core.document_store import (
 from core.pdf_extract import extract_and_cache_pdf_text
 from core.llm import OPENAI_MODELS, ANTHROPIC_MODELS
 from core.structure import guess_document_type, structure_document
+from core.document_mapper import (
+    classify_filename,
+    build_mapping,
+    save_mapping,
+    load_mapping,
+    role_to_structure_type,
+)
 from skills.registry import SKILLS
 
 
@@ -237,12 +244,15 @@ def auto_prepare_documents(
     Prepare documents for all skills.
 
     Steps:
-    1. Reuse cached extracted text if available.
-    2. Extract/OCR PDF text if needed.
-    3. Reuse structured JSON if available.
-    4. Structure the document if needed.
-    5. Return both raw text blocks and structured document blocks.
+    1. Load document mapping if available.
+    2. Reuse cached extracted text if available.
+    3. Extract/OCR PDF text if needed.
+    4. Reuse structured JSON if available.
+    5. Structure the document using mapped role (or guess_document_type fallback).
+    6. Return both raw text blocks and structured document blocks.
     """
+    mapping = load_mapping(case_name)
+
     source_texts = []
     structured_docs = []
 
@@ -264,9 +274,18 @@ def auto_prepare_documents(
             )
             text = get_document_text(doc)
 
+        # Determine display name and structure type from mapping or fallback
+        if mapping and doc.name in mapping:
+            role = mapping[doc.name]
+            display_name = role
+            structure_type = role_to_structure_type(role)
+        else:
+            display_name = doc.name
+            structure_type = guess_document_type(doc.name, text or "")
+
         source_texts.append(
             {
-                "filename": doc.name,
+                "filename": display_name,
                 "text": text or "",
             }
         )
@@ -282,12 +301,10 @@ def auto_prepare_documents(
             structured = load_structured_document(case_name, doc)
 
         if not structured:
-            guessed_type = guess_document_type(doc.name, text or "")
-
             structured = structure_document(
-                filename=doc.name,
+                filename=display_name,
                 text=text or "",
-                selected_document_type=guessed_type,
+                selected_document_type=structure_type,
             )
 
             save_structured_document(
@@ -800,6 +817,76 @@ with tabs[0]:
                 st.write(f"- `{doc.name}`")
         else:
             st.write("No PDFs stored yet.")
+
+    # ── Document Mapping ────────────────────────────────────────────────────
+
+    st.divider()
+    st.subheader("Document Mapping")
+
+    existing_mapping = load_mapping(selected_case)
+
+    if existing_mapping:
+        st.success(f"Mapping active — {len(existing_mapping)} document(s) classified.")
+        st.dataframe(
+            pd.DataFrame(
+                [{"File": k, "Role": v} for k, v in existing_mapping.items()]
+            ),
+            use_container_width=True,
+        )
+
+    build_label = "Rebuild Mapping" if existing_mapping else "Build Document Mapping"
+
+    if st.button(build_label):
+        all_docs = list_case_documents(selected_case)
+
+        if not all_docs:
+            st.warning("No documents uploaded yet.")
+        else:
+            all_filenames = [doc.name for doc in all_docs]
+
+            # Find ESOP and ensure its text is extracted
+            esop_text = ""
+            esop_found = False
+
+            for doc in all_docs:
+                if classify_filename(doc.name) == "esop":
+                    esop_found = True
+                    text = get_document_text(doc)
+                    if not text:
+                        with st.spinner(f"Extracting ESOP text from `{doc.name}`..."):
+                            extract_and_cache_pdf_text(doc)
+                        text = get_document_text(doc)
+                    esop_text = text or ""
+                    break
+
+            if not esop_found:
+                st.warning(
+                    "No ESOP detected — prior art documents cannot be matched automatically. "
+                    "Upload a file named `YYYY-MM-DD_ESOP_<number>.pdf` or `esop.pdf`."
+                )
+
+            with st.spinner("Building document mapping..."):
+                mapping = build_mapping(all_filenames, esop_text, llm_config)
+
+            save_mapping(selected_case, mapping)
+
+            st.success(f"Mapping built — {len(mapping)} document(s) classified.")
+
+            st.dataframe(
+                pd.DataFrame(
+                    [{"File": k, "Role": v} for k, v in mapping.items()]
+                ),
+                use_container_width=True,
+            )
+
+            unclassified = [f for f in all_filenames if f not in mapping]
+            if unclassified:
+                st.info(
+                    f"{len(unclassified)} file(s) could not be classified and will be ignored: "
+                    + ", ".join(f"`{f}`" for f in unclassified)
+                )
+
+            st.rerun()
 
 
 # ============================================================
