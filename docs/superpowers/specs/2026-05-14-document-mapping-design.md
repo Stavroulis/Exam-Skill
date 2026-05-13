@@ -86,13 +86,25 @@ If no file maps to `esop`, the pipeline stops after the regex phase and returns 
 `classify_filename(filename)` tries two pattern sets in order, returning the first match.
 
 **New convention patterns (tried first):**
+
+Codes are defined as named constants at the top of `document_mapper.py` so that changing a code (e.g. `_REPL_` → `_REPLY_`) is a single one-line edit with no regex to touch:
+
 ```python
+CODE_CLAIMS         = "_CLMS_"
+CODE_DESCRIPTION    = "_DESC_"
+CODE_AMENDED_CLAIMS = "_ABEX_"
+CODE_REPLY          = "_REPL_"
+CODE_ESOP           = "_ESOP_"
+
+def _new_pattern(code: str) -> str:
+    return rf"^\d{{4}}-\d{{2}}-\d{{2}}{re.escape(code)}.*\.pdf$"
+
 NEW_CONVENTION_PATTERNS = [
-    (r"^\d{4}-\d{2}-\d{2}_CLMS_.*\.pdf$",  "claims_as_filed"),
-    (r"^\d{4}-\d{2}-\d{2}_DESC_.*\.pdf$",  "description"),
-    (r"^\d{4}-\d{2}-\d{2}_ABEX_.*\.pdf$",  "amended_claims"),
-    (r"^\d{4}-\d{2}-\d{2}_REPL_.*\.pdf$",  "reply"),
-    (r"^\d{4}-\d{2}-\d{2}_ESOP_.*\.pdf$",  "esop"),
+    (_new_pattern(CODE_CLAIMS),          "claims_as_filed"),
+    (_new_pattern(CODE_DESCRIPTION),     "description"),
+    (_new_pattern(CODE_AMENDED_CLAIMS),  "amended_claims"),
+    (_new_pattern(CODE_REPLY),           "reply"),
+    (_new_pattern(CODE_ESOP),            "esop"),
 ]
 ```
 
